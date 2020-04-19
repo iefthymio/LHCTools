@@ -34,4 +34,6 @@ Instructions how to setup this project were found in : https://dev.to/rf_schuber
 
 To overcome the permission error I had to set the remote directory as
 
+```
 git remote set-url origin https://github.com/iefthymio/LHCTools.git
+```
