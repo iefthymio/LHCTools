@@ -1,4 +1,4 @@
-# Softwaer to analyze the LHC filling scheme/pattern.
+# Software to analyze the LHC filling scheme/pattern.
 
 (c) - Ilias Efthymiopoulos, 2020
 
