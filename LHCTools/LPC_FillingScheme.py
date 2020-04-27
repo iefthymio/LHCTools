@@ -128,7 +128,7 @@ class LPCFillingScheme:
         from itertools import groupby
         return [list(g) for k, g in groupby(self.csv_data, key=bool) if k]
 
-    def fsprint(self):
+    def info(self):
         print (f'''>>>>> LPC Filling scheme for fil {self.fno}''')
         mypprint('name ',self.name)
         mypprint('csv blocs ', len(self.csv_blocks))
