@@ -2,12 +2,12 @@
 # LHC Filling Pattern information from CALS logging database.
 #
 # Relevant classes:
-#   - LHCFillingScheme (fno)
+#   - LHCFillingPattern (fno)
 #
 # Created : 20.04.2020 - Ilias Efthymiopoulos
 #
 
-version = '1.01 - April 27, 2020 (IE)'
+version = '3.01 - April 27, 2020 (IE)'
 
 import cl2pd
 from cl2pd import importData
@@ -22,9 +22,9 @@ import numpy as np
 
 def getFillInjectionSheme(fno):
     var = 'LHC.STATS:LHC:INJECTION_SCHEME'
-    _df = cl2pd.importData.LHCCals2pd('LHC.STATS:LHC:INJECTION_SCHEME',fno)
+    _df = cl2pd.importData.LHCCals2pd(var,fno)
     assert _df.shape[0] != 0 , f'No Injection scheme found for fill {fno}'
-    return _df['LHC.STATS:LHC:INJECTION_SCHEME'].iloc[0]
+    return _df[var].iloc[0]
 
 def InjectionsPerFill(fno):
     '''
@@ -33,9 +33,12 @@ def InjectionsPerFill(fno):
 
         For fills with multiple injection periods the last is considered and
         the numbers have a negative sign.
+
+        Filling pattern from fast-BCT device: 
+            'LHC.BCTFR.A6R4.B1:BUNCH_FILL_PATTERN'
+            'LHC.BCTFR.A6R4.B2:BUNCH_FILL_PATTERN'
     '''
-    fpat_1 = 'LHC.BCTFR.A6R4.B1:BUNCH_FILL_PATTERN'
-    fpat_2 = 'LHC.BCTFR.A6R4.B2:BUNCH_FILL_PATTERN'
+    
 
     injections = {'b1':{'INJPROT':0, 'INJPHYS':0}, 'b2':{'INJPROT':0, 'INJPHYS':0}}
     afilldf = importData.LHCFillsByNumber(fno)
@@ -125,7 +128,7 @@ def bcollPattern(bs1, bs2, verbose):
 
 	return b1coll, b2coll
 
-def bunchTrainFlags(bs, traindf, verbose):
+def _bunchTrainFlags(bs, traindf, verbose):
 	'''
 		Return arrays with bunch train info flags
 		Input
@@ -259,8 +262,10 @@ def slot2bucket(slot):
 	'''
 	return [x*10+1 for x in slot]
 
+mypprint = lambda txt,val : print (f'''{txt:_<35s} {val}''')
+
 ###############################################################################
-class LHCFillingScheme:
+class LHCFillingPattern:
     def __init__(self, fno):
         self.fno                    = fno
         self.name                   = getFillInjectionSheme(fno)
