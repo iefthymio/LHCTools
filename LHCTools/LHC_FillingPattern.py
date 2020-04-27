@@ -7,7 +7,7 @@
 # Created : 20.04.2020 - Ilias Efthymiopoulos
 #
 
-version = '3.01 - April 27, 2020 (IE)'
+version = '3.02 - April 27, 2020 (IE)'
 
 import cl2pd
 from cl2pd import importData
@@ -148,21 +148,21 @@ def BeamBunchTrains(fbids, bunchspacing=1):
             'gap':btrainA-deltatr}
     return pd.DataFrame(trdat)
 
-def LongRangeEncounters(fbid_b1, fbid_b2, fpat1, fpat2):
-    bidB1df = BeamLongRangeEncounters(fbid_b1, fbpat1, fbpat2, 'B1')
-    bidB2df = BeamLongRangeEncounters(fbid_b2, fbpat2, fbpat1, 'B2')
-    return pd.concat([bidB1df, bidB2df])
-
-def BeamLongRangeEncounters(fbids, fbpat1, fbpat2, beam):
-    biddf = pd.DataFrame('bid':fbids, 'beam':beam.lower())
+def LongRangeEncounters(fbid_b1, fbid_b2, fpat1, fpat2, nmax):
+    bidB1df = pd.DataFrame({'bid':fbid_b1, 'beam':'b1'})
+    bidB2df = pd.DataFrame({'bid':fbid_b2, 'beam':'b2'})
     for ip in ['ip1', 'ip2', 'ip5', 'ip8']:
-        ho1_ip, ho2_ip, bpat1_ip, bpat2_ip = headon(fbpat1, fbpat2, ip.upper())
-        biddf['ho'+ip] = biddf.apply(lambda row: 1 if row['bid'] in ho1_ip else 0, axis=1)
-        biddf['lr'+ip+'enc'] = biddf.apply(lambda row: bidlrencounters(row['bid'], bid_b2, ip, nmax), axis=1)
-        biddf['lr'+ip+'enc_pos'] = biddf.apply(lambda row: bidlrencpos(row['lr'+ip+'enc'],nmax), axis=1)
-        biddf['lr'+ip+'enc_no'] = biddf.apply(lambda row: len(row['lr'+ip+'enc_pos']), axis=1)
-    return biddf
+        ho1_ip, ho2_ip, bpat1_ip, bpat2_ip = headon(fpat1, fpat2, ip.upper())
+        bidB1df['ho'+ip]            = bidB1df.apply(lambda row: 1 if row['bid'] in ho1_ip else 0, axis=1)
+        bidB1df['lr'+ip+'enc']      = bidB1df.apply(lambda row: bidlrencounters(row['bid'], fbid_b2, ip, nmax), axis=1)
+        bidB1df['lr'+ip+'enc_pos']  = bidB1df.apply(lambda row: bidlrencpos(row['lr'+ip+'enc'],nmax), axis=1)
+        bidB1df['lr'+ip+'enc_no']   = bidB1df.apply(lambda row: len(row['lr'+ip+'enc_pos']), axis=1)
 
+        bidB2df['ho'+ip]            = bidB2df.apply(lambda row: 1 if row['bid'] in ho2_ip else 0, axis=1)
+        bidB2df['lr'+ip+'enc']      = bidB2df.apply(lambda row: bidlrencounters(row['bid'], fbid_b1, ip, nmax), axis=1)
+        bidB2df['lr'+ip+'enc_pos']  = bidB2df.apply(lambda row: bidlrencpos(row['lr'+ip+'enc'],nmax), axis=1)
+        bidB2df['lr'+ip+'enc_no']   = bidB2df.apply(lambda row: len(row['lr'+ip+'enc_pos']), axis=1)
+    return pd.concat([bidB1df, bidB2df])
 
 def bidlrencounters(bid, bid2, ip, nmax):
     if (ip == 'ip1') or (ip == 'ip5') :
@@ -277,9 +277,9 @@ mypprint = lambda txt,val : print (f'''{txt:_<35s} {val}''')
 
 ###############################################################################
 class LHCFillingPattern:
-    def __init__(self, fno, mode, dt):
+    def __init__(self, fno):
         self.fno                    = fno
-        self.name                   = getFillInjectionSheme(fno)
+        self.name                   = FillInjectionSheme(fno)
 
         _tmp                        = self.name.split('_')
         self.bunch_spacing          = int(_tmp[0].replace('ns',''))
@@ -293,27 +293,32 @@ class LHCFillingPattern:
 
         self.filledBunchesDF        = None
         self.bunchTrainsDF          = None
+        self.lrencountersDF         = None
 
     def setBunchPatternAtMode(self, bmode, dt):
-        self.filledBunchesDF        = getFilledBunches(bmode, dt)
+        self.filledBunchesDF        = FilledBunches(self.fno, bmode, dt)
         self.filledSlots_b1         = self.filledBunchesDF['bid_b1'].values[0]
         self.filledSlots_b2         = self.filledBunchesDF['bid_b2'].values[0]
         self.filledPattern_b1       = self.filledBunchesDF['fpatt_b1'].values[0]
         self.filledPattern_b2       = self.filledBunchesDF['fpatt_b2'].values[0]
+        return self.filledBunchesDF
 
     def setBunchTrains(self):
-        self.bunchTrainsDF          = BunchTrins(self.filledSlots_b1,
+        self.bunchTrainsDF          = BunchTrains(self.filledSlots_b1,
                                                  self.filledSlots_b2,
                                                  self.bunch_spacing/25
                                                  )
+        return self.bunchTrainsDF
 
-    def setLongRangeEncounters(self):
+    def setLongRangeEncounters(self, nmax):
         self.lrencountersDF         = LongRangeEncounters(self.filledSlots_b1,
                                                           self.filledSlots_b2,
                                                           self.filledPattern_b1,
-                                                          self.filledPattern_b2
+                                                          self.filledPattern_b2,
+                                                          nmax
                                                           )
-
+        return self.lrencountersDF
+   
     def getBunchPatternAtMode(self):
         return self.filledBunchesDF
 
@@ -323,7 +328,7 @@ class LHCFillingPattern:
     def getLongRangeEncounters(self):
         return self.lrencountersDF
 
-    def fsprint(self):
+    def info(self):
         print (f'''>>>>> LHC Filling pattern for fil {self.fno}''')
         mypprint('name ',self.name)
         mypprint('bunch spacing ', self.bunch_spacing)
