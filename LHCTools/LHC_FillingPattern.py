@@ -20,7 +20,7 @@ import numpy as np
 #               Data From CALS
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-def getFillInjectionSheme(fno):
+def FillInjectionSheme(fno):
     var = 'LHC.STATS:LHC:INJECTION_SCHEME'
     _df = cl2pd.importData.LHCCals2pd(var,fno)
     assert _df.shape[0] != 0 , f'No Injection scheme found for fill {fno}'
@@ -38,8 +38,6 @@ def InjectionsPerFill(fno):
             'LHC.BCTFR.A6R4.B1:BUNCH_FILL_PATTERN'
             'LHC.BCTFR.A6R4.B2:BUNCH_FILL_PATTERN'
     '''
-    
-
     injections = {'b1':{'INJPROT':0, 'INJPHYS':0}, 'b2':{'INJPROT':0, 'INJPHYS':0}}
     afilldf = importData.LHCFillsByNumber(fno)
     for mode in ['INJPROT', 'INJPHYS']:
@@ -61,7 +59,7 @@ def InjectionsPerFill(fno):
                     injections[ib][mode] = nprot
     return injections
 
-def getFilledBunches(fno, bmode, toffset=pd.Timedelta('0s') ):
+def FilledBunches(fno, bmode, toffset=pd.Timedelta('0s') ):
     vlist = ['LHC.BCTFR.A6R4.B1:BUNCH_FILL_PATTERN','LHC.BCTFR.A6R4.B2:BUNCH_FILL_PATTERN']
     fldbdf = importData.LHCCals2pd(vlist, fno, beamModeList=bmode, fill_column=True, beamMode_column=True, flag='next', offset=toffset)
     fldbdf['nobunches_b1'] = fldbdf.apply(lambda row: np.sum(row['LHC.BCTFR.A6R4.B1:BUNCH_FILL_PATTERN']), axis=1 )
@@ -128,14 +126,14 @@ def bcollPattern(bs1, bs2, verbose):
 
 	return b1coll, b2coll
 
-def getBunchTrains(fbid_b1, fbid_b2, bunchspacing):
-    _tmpb1 = getBunchTrainsBeam(fbid_b1, bunchspacing)
+def BunchTrains(fbid_b1, fbid_b2, bunchspacing):
+    _tmpb1 = BeamBunchTrains(fbid_b1, bunchspacing)
     _tmpb1['beam'] = 'b1'
-    _tmpb2 = getBunchTrainsBeam(fbid_b2, bunchspacing)
+    _tmpb2 = BeamBunchTrains(fbid_b2, bunchspacing)
     _tmpb2['beam'] = 'b2'
     return pd.concat([_tmpb1, _tmpb2])
 
-def getBunchTrainsBeam(fbids, bunchspacing=1):
+def BeamBunchTrains(fbids, bunchspacing=1):
     btrains = group_consecutives(fbids, step=bunchspacing)
     btrainA = [x[0] for x in btrains]
     btrainZ = [x[-1] for x in btrains]
@@ -150,7 +148,47 @@ def getBunchTrainsBeam(fbids, bunchspacing=1):
             'gap':btrainA-deltatr}
     return pd.DataFrame(trdat)
 
-def longranges(beam1, beam2, ip, nmax):
+def LongRangeEncounters(fbid_b1, fbid_b2, fpat1, fpat2):
+    bidB1df = BeamLongRangeEncounters(fbid_b1, fbpat1, fbpat2, 'B1')
+    bidB2df = BeamLongRangeEncounters(fbid_b2, fbpat2, fbpat1, 'B2')
+    return pd.concat([bidB1df, bidB2df])
+
+def BeamLongRangeEncounters(fbids, fbpat1, fbpat2, beam):
+    biddf = pd.DataFrame('bid':fbids, 'beam':beam.lower())
+    for ip in ['ip1', 'ip2', 'ip5', 'ip8']:
+        ho1_ip, ho2_ip, bpat1_ip, bpat2_ip = headon(fbpat1, fbpat2, ip.upper())
+        biddf['ho'+ip] = biddf.apply(lambda row: 1 if row['bid'] in ho1_ip else 0, axis=1)
+        biddf['lr'+ip+'enc'] = biddf.apply(lambda row: bidlrencounters(row['bid'], bid_b2, ip, nmax), axis=1)
+        biddf['lr'+ip+'enc_pos'] = biddf.apply(lambda row: bidlrencpos(row['lr'+ip+'enc'],nmax), axis=1)
+        biddf['lr'+ip+'enc_no'] = biddf.apply(lambda row: len(row['lr'+ip+'enc_pos']), axis=1)
+    return biddf
+
+
+def bidlrencounters(bid, bid2, ip, nmax):
+    if (ip == 'ip1') or (ip == 'ip5') :
+        offset = 0
+    elif ip == 'ip2' :
+        offset = 891
+    elif ip == 'ip8' :
+        offset = -894
+    
+    lr_left = np.zeros(nmax)
+    lr_right = np.zeros(nmax)
+    for j in np.arange(1, nmax):
+        if (bid+offset+j)%3564 in bid2 :
+            lr_right[j]= 1
+        if (bid+offset-j)%3564 in bid2 :
+            lr_left[j] = 1
+    ip_left = lr_left[1:]
+    ip_right = lr_right[1:]
+    return np.concatenate((ip_left[::-1],ip_right))
+
+def bidlrencpos(enc, nmax):
+    spos = np.concatenate(((np.arange(1,nmax)*-1)[::-1], np.arange(1,nmax)))
+    _enc = np.where(enc>0)[0]
+    return spos[_enc]
+
+def _longranges(beam1, beam2, ip, nmax):
     '''
         Calculate the long-range encounters of the two beams in the selected IP
         Input :
@@ -239,7 +277,7 @@ mypprint = lambda txt,val : print (f'''{txt:_<35s} {val}''')
 
 ###############################################################################
 class LHCFillingPattern:
-    def __init__(self, fno):
+    def __init__(self, fno, mode, dt):
         self.fno                    = fno
         self.name                   = getFillInjectionSheme(fno)
 
@@ -253,6 +291,37 @@ class LHCFillingPattern:
         # self.no_injections          = int(_tmp[6].replace('inj',''))
         self.no_injections          = int(_tmp[6][:_tmp[6].find('inj')])
 
+        self.filledBunchesDF        = None
+        self.bunchTrainsDF          = None
+
+    def setBunchPatternAtMode(self, bmode, dt):
+        self.filledBunchesDF        = getFilledBunches(bmode, dt)
+        self.filledSlots_b1         = self.filledBunchesDF['bid_b1'].values[0]
+        self.filledSlots_b2         = self.filledBunchesDF['bid_b2'].values[0]
+        self.filledPattern_b1       = self.filledBunchesDF['fpatt_b1'].values[0]
+        self.filledPattern_b2       = self.filledBunchesDF['fpatt_b2'].values[0]
+
+    def setBunchTrains(self):
+        self.bunchTrainsDF          = BunchTrins(self.filledSlots_b1,
+                                                 self.filledSlots_b2,
+                                                 self.bunch_spacing/25
+                                                 )
+
+    def setLongRangeEncounters(self):
+        self.lrencountersDF         = LongRangeEncounters(self.filledSlots_b1,
+                                                          self.filledSlots_b2,
+                                                          self.filledPattern_b1,
+                                                          self.filledPattern_b2
+                                                          )
+
+    def getBunchPatternAtMode(self):
+        return self.filledBunchesDF
+
+    def getBunchTrains(self):
+        return self.bunchTrainsDF
+
+    def getLongRangeEncounters(self):
+        return self.lrencountersDF
 
     def fsprint(self):
         print (f'''>>>>> LHC Filling pattern for fil {self.fno}''')
