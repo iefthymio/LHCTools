@@ -1,5 +1,5 @@
 #
-# LHC Filling Pattern information from CALS logging database.
+# LHC Filling Pattern information from CALS database.
 #
 # Relevant classes:
 #   - LHCFillingPattern (fno)
@@ -128,33 +128,6 @@ def bcollPattern(bs1, bs2, verbose):
 
 	return b1coll, b2coll
 
-def _bunchTrainFlags(bs, traindf, verbose):
-	'''
-		Return arrays with bunch train info flags
-		Input
-			bs [3564] : filles slots array
-			traindf   : dataframe with the bunch train data
-		Returns
-			bunchtrdf : dataframe with the bunch train data and flags
-	'''
-
-	bflag1 = np.zeros(len(bs))
-	bflag2 = bflag1.copy()
-	bflag3 = bflag1.copy()
-	for i,row in traindf[traindf['Beam'] == 'atB1'].iterrows():
-		bflag1[row['TrainFstEl']:row['TrainLstEl']+1] = row['TrainID']
-		bflag2[row['TrainFstEl']:row['TrainLstEl']+1] = np.linspace(1,row['TrainLen'],row['TrainLen'],dtype=np.int16)
-		bflag3[row['TrainFstEl']:row['TrainLstEl']+1] = row['GapSizBef']
-
-	btraindf = pd.DataFrame()
-	btraindf['Bid'] = np.linspace(0,len(bs)-1,len(bs),dtype=np.int16)
-	btraindf['Filled'] = bs
-	btraindf['TrainID'] = bflag1
-	btraindf['BidInTrain'] = bflag2
-	btraindf['GapSizBef'] = bflag3
-
-	return btraindf
-
 def getBunchTrains(fbid_b1, fbid_b2, bunchspacing):
     _tmpb1 = getBunchTrainsBeam(fbid_b1, bunchspacing)
     _tmpb1['beam'] = 'b1'
@@ -277,7 +250,9 @@ class LHCFillingPattern:
         self.bunches_IP2            = int(_tmp[3])
         self.bunches_IP8            = int(_tmp[4])
         self.bunches_per_injection  = int(_tmp[5].replace('bpi',''))
-        self.no_injections          = int(_tmp[6].replace('inj',''))
+        # self.no_injections          = int(_tmp[6].replace('inj',''))
+        self.no_injections          = int(_tmp[6][:_tmp[6].find('inj')])
+
 
     def fsprint(self):
         print (f'''>>>>> LHC Filling pattern for fil {self.fno}''')
