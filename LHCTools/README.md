@@ -8,18 +8,29 @@ Two packages offered:
 
 ## Usage
 
+To initialize the tools : 
 ```
 import LHCTools as ltools
 from LHCTools import LPC_FillingScheme
 from LHCTools import LHC_FillingPattern
 
+ltools.my_cool_test_method()
+
 ```
+
+then to access the functions and the information:
+
+```
+fno = 7334
+lpcfscheme = LPC_FillingScheme.LPCFillingScheme(fno)   # -- for the LPC info
+
+l
 
 ## Data information and variables
 
 ### LPC data:
 
-The main class is *LPCFillingScheme(fno)*  : initialization as ``` lpcfscheme=LPC_FillingScheme.LPCFillingScheme(fno)```
+The main class is *LPCFillingScheme(fno)*  : initialization as ``` lpcfscheme = LPC_FillingScheme.LPCFillingScheme(fno)```
 
 Variables:
 - lpcfscheme.injSchemeDF    : DF with the schedueld injection scheme 
@@ -32,6 +43,20 @@ Variables:
 - LPC uses RF bucket numbers instead of slots. The conversion is easy, RF = SLOT*10+1 
 - LPC estimates LR ecnountes up to approx. 55m, while the **theoretically** possible max is ~140 m from the IP (TAN Y chamber separation)
 
+### LHC data:
+
+The main class is *LHCFillingPattern(fno)* : initialization as ```lhcfpatttern = LHC_FillingPattern.LHCFillingPatter(fno)```
+
+Variables:
+- lhcfpatt.setBunchPatternAtMode(bmode='STABLE', dt=pd.Timedelta('0s'))     : DF with the filled bunche list and pattern
+- lhcfpatt.setBunchTrains()                                                 : DF with the bunch train data
+- lhcfpatt.setLongRangeEncounters(nmax=38)                                  : DF with the long-range encounters up to nmax x-sings around the IPs
+
+
 ## Dependences
 
-Standard python libraries
+Standard pyhton libraries and,
+
+- pytimber
+- cl2pd
+
