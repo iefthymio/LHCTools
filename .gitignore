@@ -1,0 +1,7 @@
+# files not to include in gitHub commits
+
+# -- all .log files
+*.log
+
+# --- all .pyc files
+*.pyc
