@@ -197,31 +197,6 @@ def bidlrencpos(enc, nmax):
     _enc = np.where(enc>0)[0]
     return spos[_enc]
 
-def _longranges(beam1, beam2, ip, nmax):
-    '''
-        Calculate the long-range encounters of the two beams in the selected IP
-        Input :
-            beam1/beam2 [3564] : array with the filled slots for each beam
-            ip : the name of the ip
-        Return:
-            enc[nmax] : the number of encounters from [-nmax, nmax]
-    '''
-    iof_bcid = offsetB1toB2(ip)
-     enc = np.zeros(nmax)
-    j = 1
-    while j < nmax/2:
-        beam2a = np.roll(beam2,iof_bcid+j)
-        tmp = beam1 + beam2a
-        aa = np.where(tmp>1)
-        enc[int(nmax/2)+j] += np.size(aa)
-
-        beam2a = np.roll(beam2, iof_bcid-j)
-        tmp = beam1 + beam2a
-        bb = np.where(tmp>1)
-        enc[int(nmax/2)-j] += np.size(bb)
-        j +=1
-    return enc
-
 def headon(bpatb1, bpatb2, ip):
     ip = ip.upper()
     iof_bcid = offsetB1toB2(ip)
