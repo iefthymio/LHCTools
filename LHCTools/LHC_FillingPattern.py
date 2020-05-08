@@ -103,16 +103,24 @@ def FilledSlotsAtTime(tt):
     fslots['B2']['FilledBID'] = fb2
     return fb1, fb2, b1, b2, fslots
 
-def bcollPattern(bs1, bs2, verbose):
-	'''
-		Fill two collision pattern for the beams
-		Input
-			bs1	[3564] : array with the filled slots of beam1
-	'''
+def offsetB1toB2(ip):
+    offset = {'IP1':0, 'IP5':0, 'IP2':-891, 'IP8':891+3}
+    return offset(ip.uppper())
 
-	b1ho1, b2ho1, b1c1, b2c1 = headon(bs1, bs2, 'IP1')
-	b1ho2, b2ho2, b1c2, b2c2 = headon(bs1, bs2, 'IP2')
-	b1ho8, b2ho8, b1c8, b2c8 = headon(bs1, bs2, 'IP8')
+def bid2pat(abid):
+    bidpat = np.zeros(3564)
+    bidpat[np.transpose(abid)] = 1 
+    return bidpat
+
+def pat2bid(apat, flag):
+    return np.where(apat>flag)[0]
+
+
+def bcollPattern(bs1, bs2):
+
+	b1ho1, b2ho1 = headon(bs1, bs2, 'IP1')
+	b1ho2, b2ho2 = headon(bs1, bs2, 'IP2')
+	b1ho8, b2ho8 = headon(bs1, bs2, 'IP8')
 
 	b1coll = np.zeros(len(bs1))
 	b1coll[b1ho1] += 2**1 + 2**5
@@ -125,6 +133,12 @@ def bcollPattern(bs1, bs2, verbose):
 	b2coll[b2ho8] += 2**8
 
 	return b1coll, b2coll
+
+def headonBeamPairIP(hobids, ip, beam='B1'):
+    ip = ip.upper()
+    iof_bcid = offsetB1toB2(ip)
+    if beam == 'B2' : iof_bcid = -iof_bcid
+    return [(i-iof_bcid)%3564 for i in hobids]
 
 def BunchTrains(fbid_b1, fbid_b2, bunchspacing):
     _tmpb1 = BeamBunchTrains(fbid_b1, bunchspacing)
@@ -165,13 +179,8 @@ def LongRangeEncounters(fbid_b1, fbid_b2, fpat1, fpat2, nmax):
     return pd.concat([bidB1df, bidB2df])
 
 def bidlrencounters(bid, bid2, ip, nmax):
-    if (ip == 'ip1') or (ip == 'ip5') :
-        offset = 0
-    elif ip == 'ip2' :
-        offset = 891
-    elif ip == 'ip8' :
-        offset = -894
-    
+    offset = -1*offsetB1toB2(ip)
+        
     lr_left = np.zeros(nmax)
     lr_right = np.zeros(nmax)
     for j in np.arange(1, nmax):
@@ -197,14 +206,8 @@ def _longranges(beam1, beam2, ip, nmax):
         Return:
             enc[nmax] : the number of encounters from [-nmax, nmax]
     '''
-    if (ip == 'IP1') or (ip == 'IP5'):
-        iof_bcid = 0
-    if (ip == 'IP8') :
-        iof_bcid = 891+3
-    if (ip == 'IP2') :
-        iof_bcid = 891
-
-    enc = np.zeros(nmax)
+    iof_bcid = offsetB1toB2(ip)
+     enc = np.zeros(nmax)
     j = 1
     while j < nmax/2:
         beam2a = np.roll(beam2,iof_bcid+j)
@@ -220,13 +223,22 @@ def _longranges(beam1, beam2, ip, nmax):
     return enc
 
 def headon(bpatb1, bpatb2, ip):
-    if (ip == 'IP1') or (ip == 'IP5'):
-        iof_bcid = 0
-    if (ip == 'IP8') :
-        iof_bcid = 891+3
-    if (ip == 'IP2') :
-        iof_bcid = -891
+    ip = ip.upper()
+    iof_bcid = offsetB1toB2(ip)
+    
+    bpatb2a = np.roll(bpatb2, iof_bcid)
+    tmp1 = bpatb1 + bpatb2a
+    hob1 = pat2bid(tmp1,1)
+    
+    bpatb1a = np.roll(bpatb1, -iof_bcid)
+    tmp2 = bpatb1a + bpatb2
+    hob2 = pat2bid(tmp2, 1)
+    return hob1, hob2
 
+def headonOld(bpatb1, bpatb2, ip):
+    ip = ip.upper()
+    iof_bcid = offsetB1toB2(ip)
+ 
     bpatb2a = np.roll(bpatb2, iof_bcid)
     tmp1 = bpatb1 + bpatb2a
     hob1 = np.where(tmp1>1)
