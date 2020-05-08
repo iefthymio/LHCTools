@@ -7,7 +7,7 @@
 # Created : 20.04.2020 - Ilias Efthymiopoulos
 #
 
-version = '3.02 - April 27, 2020 (IE)'
+version = '3.20 - May 9, 2020 (IE)'
 
 import cl2pd
 from cl2pd import importData
@@ -15,6 +15,7 @@ pd = importData.pd
 cals = importData.cals
 
 import numpy as np
+from collections import OrderedDict
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #               Data From CALS
@@ -105,7 +106,7 @@ def FilledSlotsAtTime(tt):
 
 def offsetB1toB2(ip):
     offset = {'IP1':0, 'IP5':0, 'IP2':-891, 'IP8':891+3}
-    return offset(ip.upper())
+    return offset[ip.upper()]
 
 def bid2pat(abid):
     bidpat = np.zeros(3564)
@@ -118,27 +119,27 @@ def pat2bid(apat, flag):
 
 def bcollPattern(bs1, bs2):
 
-	b1ho1, b2ho1 = headon(bs1, bs2, 'IP1')
-	b1ho2, b2ho2 = headon(bs1, bs2, 'IP2')
-	b1ho8, b2ho8 = headon(bs1, bs2, 'IP8')
+    b1ho1, b2ho1 = headon(bs1, bs2, 'IP1')
+    b1ho2, b2ho2 = headon(bs1, bs2, 'IP2')
+    b1ho8, b2ho8 = headon(bs1, bs2, 'IP8')
 
-	b1coll = np.zeros(len(bs1))
-	b1coll[b1ho1] += 2**1 + 2**5
-	b1coll[b1ho2] += 2**2
-	b1coll[b1ho8] += 2**8
+    b1coll = bs1.copy()
+    b1coll[b1ho1] += 2**1 + 2**5
+    b1coll[b1ho2] += 2**2
+    b1coll[b1ho8] += 2**8
 
-	b2coll = np.zeros(len(bs2))
-	b2coll[b2ho1] += 2**1 + 2**5
-	b2coll[b2ho2] += 2**2
-	b2coll[b2ho8] += 2**8
+    b2coll = bs2.copy()
+    b2coll[b2ho1] += 2**1 + 2**5
+    b2coll[b2ho2] += 2**2
+    b2coll[b2ho8] += 2**8
 
-	return b1coll, b2coll
+    return b1coll, b2coll
 
 def headonBeamPairIP(hobids, ip, beam='B1'):
     ip = ip.upper()
     iof_bcid = offsetB1toB2(ip)
     if beam == 'B2' : iof_bcid = -iof_bcid
-    return [(i-iof_bcid)%3564 for i in hobids]
+    return np.array([(i-iof_bcid)%3564 for i in hobids])
 
 def BunchTrains(fbid_b1, fbid_b2, bunchspacing):
     _tmpb1 = BeamBunchTrains(fbid_b1, bunchspacing)
@@ -166,7 +167,7 @@ def LongRangeEncounters(fbid_b1, fbid_b2, fpat1, fpat2, nmax):
     bidB1df = pd.DataFrame({'bid':fbid_b1, 'beam':'b1'})
     bidB2df = pd.DataFrame({'bid':fbid_b2, 'beam':'b2'})
     for ip in ['ip1', 'ip2', 'ip5', 'ip8']:
-        ho1_ip, ho2_ip, bpat1_ip, bpat2_ip = headon(fpat1, fpat2, ip.upper())
+        ho1_ip, ho2_ip = headon(fpat1, fpat2, ip.upper())
         bidB1df['ho'+ip]            = bidB1df.apply(lambda row: 1 if row['bid'] in ho1_ip else 0, axis=1)
         bidB1df['lr'+ip+'enc']      = bidB1df.apply(lambda row: bidlrencounters(row['bid'], fbid_b2, ip, nmax), axis=1)
         bidB1df['lr'+ip+'enc_pos']  = bidB1df.apply(lambda row: bidlrencpos(row['lr'+ip+'enc'],nmax), axis=1)
@@ -210,23 +211,67 @@ def headon(bpatb1, bpatb2, ip):
     hob2 = pat2bid(tmp2, 1)
     return hob1, hob2
 
-def headonOld(bpatb1, bpatb2, ip):
-    ip = ip.upper()
-    iof_bcid = offsetB1toB2(ip)
- 
-    bpatb2a = np.roll(bpatb2, iof_bcid)
-    tmp1 = bpatb1 + bpatb2a
-    hob1 = np.where(tmp1>1)
+import itertools 
 
-    bpatb1a = np.roll(bpatb1, -iof_bcid)
-    tmp2 = bpatb1a + bpatb2
-    hob2 = np.where(tmp2>1)
+def cflagID():
+    ips = [1, 2, 5, 8]
+    d2 = {}
+    _cflagdict = {}
+    for i in [1,2,3,4]:
+        for j in itertools.combinations(ips,i):
+            key = ''
+            value = 1
+            for k in j:
+                key += 'ip'+str(k)+'-'
+                value += 2**k
+            key = key[:-1]
+            _cflagdict[key] = value
+    _cflagdict['nc'] = 1
+    cflagID = OrderedDict(sorted(_cflagdict.items(), key=lambda t: t[1]))
+    cflagIDinv = dict(map(reversed, cflagID.items()))
+    return cflagID, cflagIDinv
 
-    bpat1c = np.zeros(3564)
-    bpat2c = np.zeros(3564)
-    bpat1c[np.transpose(hob1)] = 1
-    bpat2c[np.transpose(hob2)] = 1
-    return hob1[0], hob2[0], bpat1c, bpat2c
+def HeadOnPattern(bpatb1, bpatb2):
+    ip = ['ip1', 'ip2','ip5','ip8']
+    ipflag = {'ip1':2**1, 'ip2':2**2, 'ip5':2**5, 'ip8':2**8}
+    
+    cpattB1AllIPs, cpattB2AllIPs = bcollPattern(bpatb1, bpatb2)
+
+    dflist = []
+    for i in ip:
+        hob1, hob2 = headon(bpatb1, bpatb2, i)
+        hob1p = headonBeamPairIP(hob1, i, beam='B1')
+        hob2p = headonBeamPairIP(hob2, i, beam='B2')
+        
+        _b1  = [cpattB1AllIPs[j] for j in hob1]
+        _b1p = [cpattB2AllIPs[j] for j in hob1p]
+        _aux = pd.DataFrame({'ho':hob1, 
+                             'hop':hob1p,
+                             'cflag':_b1,
+                             'cflagp':_b1p})
+        _aux['beam'] = 'B1'
+        _aux['ip'] = i
+        dflist.append(_aux)
+        
+        _b2  = [cpattB2AllIPs[j] for j in hob2]
+        _b2p = [cpattB1AllIPs[j] for j in hob2p]
+        _aux = pd.DataFrame({'ho':hob2,
+                             'hop':hob2p,
+                             'cflag':_b2,
+                             'cflagp':_b2p})
+        _aux['beam'] = 'B2'
+        _aux['ip'] = i
+
+        dflist.append(_aux)
+
+    hoPatDF = pd.concat(dflist)
+
+    flagID, flagIDinv = cflagID()
+
+    hoPatDF['cflagID']  = hoPatDF['cflag'].apply(lambda x : flagIDinv[int(x)])
+    hoPatDF['cflagIDp'] = hoPatDF['cflagp'].apply(lambda x : flagIDinv[int(x)])
+
+    return hoPatDF
 
 def commonel(list1, list2):
 	'''
@@ -279,6 +324,7 @@ class LHCFillingPattern:
         self.no_injections          = int(_tmp[6][:_tmp[6].find('inj')])
 
         self.filledBunchesDF        = None
+        self.headOnDF               = None
         self.bunchTrainsDF          = None
         self.lrencountersDF         = None
 
@@ -288,14 +334,23 @@ class LHCFillingPattern:
         self.filledSlots_b2         = self.filledBunchesDF['bid_b2'].values[0]
         self.filledPattern_b1       = self.filledBunchesDF['fpatt_b1'].values[0]
         self.filledPattern_b2       = self.filledBunchesDF['fpatt_b2'].values[0]
-        return self.filledBunchesDF
+
+        self.setHeadOn()
+        self.setBunchTrains()
+        return 
+
+    def setHeadOn(self):
+        self.headOnDF               = HeadOnPattern(self.filledPattern_b1, 
+                                                    self.filledPattern_b2
+                                                    )
+        return 
 
     def setBunchTrains(self):
         self.bunchTrainsDF          = BunchTrains(self.filledSlots_b1,
                                                  self.filledSlots_b2,
                                                  self.bunch_spacing/25
                                                  )
-        return self.bunchTrainsDF
+        return
 
     def setLongRangeEncounters(self, nmax):
         self.lrencountersDF         = LongRangeEncounters(self.filledSlots_b1,
@@ -304,10 +359,13 @@ class LHCFillingPattern:
                                                           self.filledPattern_b2,
                                                           nmax
                                                           )
-        return self.lrencountersDF
+        return
    
     def getBunchPatternAtMode(self):
         return self.filledBunchesDF
+
+    def getHeadOnPattern(self):
+        return self.headOnDF
 
     def getBunchTrains(self):
         return self.bunchTrainsDF
