@@ -105,7 +105,7 @@ def FilledSlotsAtTime(tt):
 
 def offsetB1toB2(ip):
     offset = {'IP1':0, 'IP5':0, 'IP2':-891, 'IP8':891+3}
-    return offset(ip.uppper())
+    return offset(ip.upper())
 
 def bid2pat(abid):
     bidpat = np.zeros(3564)
