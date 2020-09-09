@@ -14,12 +14,9 @@ from cl2pd import importData
 pd = importData.pd
 cals = importData.cals
 
-<<<<<<< HEAD
 import pytimber
 logdb = pytimber.LoggingDB()
 
-=======
->>>>>>> 68260e76ebd8ca472d436a227a43a42b75820665
 import numpy as np
 from collections import OrderedDict
 
@@ -27,20 +24,16 @@ from collections import OrderedDict
 #               Data From CALS
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-<<<<<<< HEAD
 def _FillInjectionSheme(fno):
     var = 'LHC.STATS:LHC:INJECTION_SCHEME'
     _fill = logdb.getLHCFillData(fno)
 
-=======
 def FillInjectionSheme(fno):
     var = 'LHC.STATS:LHC:INJECTION_SCHEME'
->>>>>>> 68260e76ebd8ca472d436a227a43a42b75820665
     _df = cl2pd.importData.LHCCals2pd(var,fno)
     assert _df.shape[0] != 0 , f'No Injection scheme found for fill {fno}'
     return _df[var].iloc[0]
 
-<<<<<<< HEAD
 def FillInjectionSheme(fno):
     var = 'LHC.STATS:LHC:INJECTION_SCHEME'
 
@@ -49,10 +42,6 @@ def FillInjectionSheme(fno):
     assert _data[var][1] != 0 , f'No Injection scheme found for fill {fno}'
     return _data[var][1][0]
 
-
-
-=======
->>>>>>> 68260e76ebd8ca472d436a227a43a42b75820665
 def InjectionsPerFill(fno):
     '''
         Get the number of injections per beam for the selected fill(s)
