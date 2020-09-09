@@ -14,6 +14,9 @@ from cl2pd import importData
 pd = importData.pd
 cals = importData.cals
 
+import pytimber
+logdb = pytimber.LoggingDB()
+
 import numpy as np
 from collections import OrderedDict
 
@@ -21,11 +24,23 @@ from collections import OrderedDict
 #               Data From CALS
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-def FillInjectionSheme(fno):
+def _FillInjectionSheme(fno):
     var = 'LHC.STATS:LHC:INJECTION_SCHEME'
+    _fill = logdb.getLHCFillData(fno)
+
     _df = cl2pd.importData.LHCCals2pd(var,fno)
     assert _df.shape[0] != 0 , f'No Injection scheme found for fill {fno}'
     return _df[var].iloc[0]
+
+def FillInjectionSheme(fno):
+    var = 'LHC.STATS:LHC:INJECTION_SCHEME'
+
+    _tfill = logdb.getLHCFillData(fno)
+    _data = logdb.get(var, _tfill['startTime'], _tfill['endTime'])
+    assert _data[var][1] != 0 , f'No Injection scheme found for fill {fno}'
+    return _data[var][1][0]
+
+
 
 def InjectionsPerFill(fno):
     '''
